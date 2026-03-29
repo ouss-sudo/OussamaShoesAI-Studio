@@ -26,7 +26,7 @@ interface TexturedShoeProps {
 }
 
 function TexturedShoe({ onSelectionActive, registerCommit, registerReset, registerRestore, selectionMode = 'wand', stickerImg, stickerScale=0.2, stickerRotation=0, paintMode='realistic' }: TexturedShoeProps) {
-  const { imageTexture, imageShape, materials, selectedPart } = useShoeStore()
+  const { imageTexture, imageShape, materials, selectedPart, activeColor } = useShoeStore()
   const geomRef1 = useRef<THREE.PlaneGeometry>(null)
   const geomRef2 = useRef<THREE.PlaneGeometry>(null)
 
@@ -38,9 +38,6 @@ function TexturedShoe({ onSelectionActive, registerCommit, registerReset, regist
   const activeMaskRef = useRef<Uint8Array | null>(null)
   const workingCanvasRef = useRef<HTMLCanvasElement | null>(null)
   
-  // Custom active color controlled locally (or synced with store)
-  const [activeColor, setActiveColor] = useState<string>('#ff0000')
-
   // Drawing state
   const isDrawing = useRef(false)
   const brushSize = 15 // pixel radius
@@ -492,24 +489,33 @@ function TexturedShoe({ onSelectionActive, registerCommit, registerReset, regist
         shapeStartUvRef.current = null
     }
     isDrawing.current = false
+
+    // ── AUTO-COMMIT (BAKE) STROKE AFTER EVERY ACTION ──
+    // This allows seamless multi-color painting without needing to manually click "Valider" every time.
+    if (workingCanvasRef.current && originalImgDataRef.current && activeMaskRef.current && selectionMode !== 'sticker') {
+       const newImg = workingCanvasRef.current.getContext('2d')!.getImageData(0, 0, workingCanvasRef.current.width, workingCanvasRef.current.height)
+       originalImgDataRef.current = newImg
+       currentImgDataRef.current = new ImageData(new Uint8ClampedArray(newImg.data), newImg.width, newImg.height)
+       activeMaskRef.current = null 
+       if (onSelectionActive) onSelectionActive(false)
+    }
   }
 
-  // 4. Listen to Material changes and extract color for the active UI panel
-  const currentUserColor = (selectedPart && materials[selectedPart]?.color) ? materials[selectedPart].color : '#ffffff'
-
+  // 4. Listen to activeColor changes and update the mask tint
   useEffect(() => {
     if (activeMaskRef.current) {
-      setActiveColor(currentUserColor)
-      applyTintToCurrent(activeMaskRef.current, currentUserColor)
+      applyTintToCurrent(activeMaskRef.current, activeColor)
     }
-  }, [currentUserColor, selectedPart, paintMode])
+  }, [activeColor, paintMode])
 
   useEffect(() => {
     if (registerCommit) {
       registerCommit(() => {
         if (workingCanvasRef.current && originalImgDataRef.current && activeMaskRef.current) {
           // Permanently save the colored canvas back into our original data ref!
-          originalImgDataRef.current = workingCanvasRef.current.getContext('2d')!.getImageData(0, 0, workingCanvasRef.current.width, workingCanvasRef.current.height)
+          const newImg = workingCanvasRef.current.getContext('2d')!.getImageData(0, 0, workingCanvasRef.current.width, workingCanvasRef.current.height)
+          originalImgDataRef.current = newImg
+          currentImgDataRef.current = new ImageData(new Uint8ClampedArray(newImg.data), newImg.width, newImg.height)
           activeMaskRef.current = null // Clear active mask so next click starts fresh from the new base
         }
       })

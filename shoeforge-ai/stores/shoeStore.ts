@@ -67,6 +67,8 @@ interface ShoeStore {
   setSelectionMode: (mode: SelectionMode) => void
   paintMode: PaintMode
   setPaintMode: (mode: PaintMode) => void
+  activeColor: string
+  setActiveColor: (color: string) => void
   stickerImg: HTMLImageElement | null
   setStickerImg: (img: HTMLImageElement | null) => void
   stickerScale: number
@@ -159,6 +161,8 @@ export const useShoeStore = create<ShoeStore>((set, get) => ({
   setSelectionMode: (mode) => set({ selectionMode: mode }),
   paintMode: 'realistic' as PaintMode,
   setPaintMode: (mode) => set({ paintMode: mode }),
+  activeColor: '#ff0000',
+  setActiveColor: (color) => set({ activeColor: color }),
   stickerImg: null,
   setStickerImg: (img) => set({ stickerImg: img }),
   stickerScale: 0.5,
